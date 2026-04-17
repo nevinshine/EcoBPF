@@ -95,7 +95,9 @@ func (f *WebSocketFeed) HandleConnection(w http.ResponseWriter, r *http.Request)
 		"message": "EcoBPF telemetry feed active",
 		"version": "1.0.0",
 	}
-	conn.WriteJSON(welcome)
+	if err := conn.WriteJSON(welcome); err != nil {
+		slog.Warn("Failed to send WebSocket welcome message", "error", err)
+	}
 
 	// Read loop (handles client disconnect detection)
 	defer func() {

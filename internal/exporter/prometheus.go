@@ -9,6 +9,7 @@ import (
 	"github.com/nevin/ecobpf/internal/estimator"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -42,8 +43,8 @@ func NewPrometheus(carbonIntensity float64) *Prometheus {
 	reg := prometheus.NewRegistry()
 
 	// Register default Go and process collectors
-	reg.MustRegister(prometheus.NewGoCollector())
-	reg.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
+	reg.MustRegister(collectors.NewGoCollector())
+	reg.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 
 	labels := []string{"pid", "comm", "container_id", "container_name"}
 

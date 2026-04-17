@@ -212,9 +212,10 @@ func main() {
 			<-ctx.Done()
 			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer shutdownCancel()
-			server.Shutdown(shutdownCtx)
+			if err := server.Shutdown(shutdownCtx); err != nil {
+				slog.Warn("Prometheus server shutdown error", "error", err)
+			}
 		}()
-
 		slog.Info("Prometheus exporter listening", "addr", cfg.PrometheusAddr)
 		if err := server.ListenAndServe(); err != http.ErrServerClosed {
 			slog.Error("Prometheus server error", "error", err)
@@ -230,7 +231,9 @@ func main() {
 		mux.HandleFunc("/ws", wsFeed.HandleConnection)
 		mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"status":"ok","version":"` + Version + `"}`))
+			if _, err := w.Write([]byte(`{"status":"ok","version":"` + Version + `"}`)); err != nil {
+				slog.Debug("Health response write error", "error", err)
+			}
 		})
 		server := &http.Server{Addr: cfg.WebSocketAddr, Handler: mux}
 
@@ -238,7 +241,9 @@ func main() {
 			<-ctx.Done()
 			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer shutdownCancel()
-			server.Shutdown(shutdownCtx)
+			if err := server.Shutdown(shutdownCtx); err != nil {
+				slog.Warn("WebSocket server shutdown error", "error", err)
+			}
 		}()
 
 		slog.Info("WebSocket feed listening", "addr", cfg.WebSocketAddr)

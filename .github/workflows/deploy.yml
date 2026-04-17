@@ -1,0 +1,144 @@
+name: Deploy to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Docker image tag to deploy (e.g. v1.2.3)"
+        required: true
+        type: string
+      environment:
+        description: "Target environment"
+        required: true
+        default: production
+        type: choice
+        options:
+          - staging
+          - production
+      dry_run:
+        description: "Dry run only (no actual deploy)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  # Only one deploy per environment at a time — prevents overlapping deploys
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  # ─── Pre-flight checks ────────────────────────────────────────────
+  preflight:
+    name: Pre-flight Checks
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.validate.outputs.image_tag }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Validate inputs
+        id: validate
+        run: |
+          VERSION="${{ inputs.version }}"
+          # Ensure version looks like a semver tag or sha reference
+          if [[ ! "${VERSION}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]] && \
+             [[ ! "${VERSION}" =~ ^sha- ]]; then
+            echo "ERROR: version must be a semver tag (v1.2.3) or sha- reference"
+            exit 1
+          fi
+          echo "image_tag=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Deploying version: ${VERSION} to ${{ inputs.environment }}"
+
+  # ─── Deploy to staging ────────────────────────────────────────────
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: preflight
+    if: inputs.environment == 'staging'
+    environment: staging
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Deploy to staging via Ansible
+        if: inputs.dry_run == false
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+          IMAGE_TAG: ${{ needs.preflight.outputs.image_tag }}
+        run: |
+          echo "Deploying ecobpf-daemon:${IMAGE_TAG} to staging"
+          # Ansible deploy command (requires SSH_PRIVATE_KEY secret set in staging environment)
+          # ansible-playbook -i deploy/ansible/inventory.ini deploy/ansible/playbook.yml \
+          #   -e "ecobpf_image_tag=${IMAGE_TAG}" \
+          #   -e "environment=staging"
+          echo "✓ Staging deploy step (configure Ansible secrets to activate)"
+
+      - name: Dry-run summary (staging)
+        if: inputs.dry_run == true
+        run: |
+          echo "DRY RUN — would deploy ${{ needs.preflight.outputs.image_tag }} to staging"
+
+  # ─── Deploy to production (requires manual approval) ──────────────
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: preflight
+    if: inputs.environment == 'production'
+    # The 'production' environment must be configured in GitHub repository
+    # settings with required reviewers for manual approval gating.
+    environment: production
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Log deployment start
+        run: |
+          echo "Starting production deployment"
+          echo "  Version:    ${{ needs.preflight.outputs.image_tag }}"
+          echo "  Triggered:  ${{ github.actor }}"
+          echo "  Dry run:    ${{ inputs.dry_run }}"
+
+      - name: Deploy to production via Ansible
+        if: inputs.dry_run == false
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+          IMAGE_TAG: ${{ needs.preflight.outputs.image_tag }}
+        run: |
+          echo "Deploying ecobpf-daemon:${IMAGE_TAG} to production"
+          # Ansible deploy command (requires SSH_PRIVATE_KEY secret set in production environment)
+          # ansible-playbook -i deploy/ansible/inventory.ini deploy/ansible/playbook.yml \
+          #   -e "ecobpf_image_tag=${IMAGE_TAG}" \
+          #   -e "environment=production"
+          echo "✓ Production deploy step (configure Ansible secrets to activate)"
+
+      - name: Verify health after deployment
+        if: inputs.dry_run == false
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+        run: |
+          if [[ -n "${DEPLOY_HOST}" ]]; then
+            echo "Checking health endpoint on ${DEPLOY_HOST}..."
+            # Retry health check up to 10 times with 6-second intervals (1 minute total)
+            for i in $(seq 1 10); do
+              if curl -fsS "http://${DEPLOY_HOST}:8080/health" --max-time 5 | grep -q '"status":"ok"'; then
+                echo "✓ Health check passed (attempt ${i})"
+                break
+              fi
+              echo "  Attempt ${i}/10 — waiting..."
+              sleep 6
+              if [[ "${i}" == "10" ]]; then
+                echo "✗ Health check failed after 10 attempts — consider rollback"
+                exit 1
+              fi
+            done
+          else
+            echo "⚠ DEPLOY_HOST not set — skipping health check"
+          fi
+
+      - name: Dry-run summary (production)
+        if: inputs.dry_run == true
+        run: |
+          echo "DRY RUN — would deploy ${{ needs.preflight.outputs.image_tag }} to production"
+          echo "Required environment variable: DEPLOY_HOST"
+          echo "Required secrets: SSH_PRIVATE_KEY (in production environment)"
