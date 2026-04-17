@@ -23,9 +23,9 @@ from grpc_reflection.v1alpha import reflection
 # Add parent directory for proto imports
 sys.path.insert(0, os.path.dirname(__file__))
 
-from proto import estimator_pb2
-from proto import estimator_pb2_grpc
-from model import EnergyEstimator, FEATURE_COLUMNS
+from proto import estimator_pb2  # noqa: E402
+from proto import estimator_pb2_grpc  # noqa: E402
+from model import EnergyEstimator, FEATURE_COLUMNS  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,

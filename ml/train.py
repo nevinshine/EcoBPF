@@ -123,7 +123,7 @@ def main():
     y = df["energy_joules"].values
 
     print(f"\nTraining on {len(df)} samples with {len(FEATURE_COLUMNS)} features...")
-    print(f"  Feature ranges:")
+    print("  Feature ranges:")
     for col in FEATURE_COLUMNS:
         print(f"    {col:20s}: [{df[col].min():.2e}, {df[col].max():.2e}]")
     print(f"  Energy range: [{y.min():.4f}, {y.max():.4f}] joules")
@@ -132,18 +132,18 @@ def main():
     metrics = estimator.train(X, y)
 
     # ─── Results ─────────────────────────────────────────────────────
-    print(f"\n{'='*60}")
-    print(f"  Training Results")
-    print(f"{'='*60}")
+    print(f"\n{'=' * 60}")
+    print("  Training Results")
+    print(f"{'=' * 60}")
     print(f"  R² Score:  {metrics['r2_score']:.6f}")
     print(f"  MAE:       {metrics['mae_joules']:.6f} joules")
     print(f"  Intercept: {metrics['intercept']:.6f}")
 
-    print(f"\n  Learned Coefficients:")
+    print("\n  Learned Coefficients:")
     for feat, coef in metrics["coefficients"].items():
         print(f"    {feat:20s}: {coef:+.8e}")
 
-    print(f"\n  Feature Importance (normalized):")
+    print("\n  Feature Importance (normalized):")
     importance = estimator.get_feature_importance()
     for feat, imp in sorted(importance.items(), key=lambda x: -x[1]):
         bar = "█" * int(imp * 40)
@@ -154,15 +154,15 @@ def main():
     print(f"\n  Model saved to: {args.output}")
 
     # ─── Sanity check ────────────────────────────────────────────────
-    print(f"\n  Sanity Check (first 5 predictions):")
+    print("\n  Sanity Check (first 5 predictions):")
     preds = estimator.predict(X[:5])
     for i in range(5):
-        print(f"    Sample {i+1}: actual={y[i]:.4f}J, predicted={preds[i]:.4f}J, "
-              f"error={abs(y[i]-preds[i]):.4f}J")
+        print(f"    Sample {i + 1}: actual={y[i]:.4f}J, predicted={preds[i]:.4f}J, "
+              f"error={abs(y[i] - preds[i]):.4f}J")
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("  Training complete. Model ready for deployment.")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
 
 if __name__ == "__main__":

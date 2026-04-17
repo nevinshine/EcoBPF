@@ -64,51 +64,6 @@ export default function App() {
   const reconnectTimer = useRef<number | undefined>(undefined)
   const demoTimer = useRef<number | undefined>(undefined)
 
-  /* ─── WebSocket Connection ────────────────────── */
-  const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return
-    setStatus('connecting')
-
-    const ws = new WebSocket(WS_URL)
-    wsRef.current = ws
-
-    ws.onopen = () => {
-      setStatus('connected')
-      setDemoMode(false)
-      if (demoTimer.current) clearInterval(demoTimer.current)
-    }
-
-    ws.onmessage = (evt) => {
-      try {
-        const data: TelemetryEvent = JSON.parse(evt.data)
-        if (data.type === 'telemetry') {
-          setLatest(data)
-          const now = new Date(data.timestamp).toLocaleTimeString('en-US', {
-            hour12: false, hour: '2-digit', minute: '2-digit'
-          })
-
-          setHistory(prev => {
-            const next = [...prev, {
-              time: now,
-              energy: data.summary.total_energy_joules,
-              power: data.summary.total_power_watts,
-              carbon: data.summary.total_carbon_grams_co2,
-            }]
-            return next.slice(-MAX_HISTORY)
-          })
-        }
-      } catch { /* ignore bad frames */ }
-    }
-
-    ws.onclose = () => {
-      setStatus('disconnected')
-      reconnectTimer.current = window.setTimeout(connect, RECONNECT_DELAY)
-      if (!demoMode) startDemo()
-    }
-
-    ws.onerror = () => ws.close()
-  }, [demoMode])
-
   /* ─── Demo Mode (synthetic data) ──────────────── */
   const startDemo = useCallback(() => {
     setDemoMode(true)
@@ -165,6 +120,61 @@ export default function App() {
       })
     }, 1000)
   }, [])
+
+  /* ─── WebSocket Connection ────────────────────── */
+  // connectRef holds the latest connect callback to avoid a stale-closure
+  // self-reference inside the ws.onclose reconnect timer.
+  const connectRef = useRef<(() => void) | null>(null)
+
+  const connect = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) return
+    setStatus('connecting')
+
+    const ws = new WebSocket(WS_URL)
+    wsRef.current = ws
+
+    ws.onopen = () => {
+      setStatus('connected')
+      setDemoMode(false)
+      if (demoTimer.current) clearInterval(demoTimer.current)
+    }
+
+    ws.onmessage = (evt) => {
+      try {
+        const data: TelemetryEvent = JSON.parse(evt.data)
+        if (data.type === 'telemetry') {
+          setLatest(data)
+          const now = new Date(data.timestamp).toLocaleTimeString('en-US', {
+            hour12: false, hour: '2-digit', minute: '2-digit'
+          })
+
+          setHistory(prev => {
+            const next = [...prev, {
+              time: now,
+              energy: data.summary.total_energy_joules,
+              power: data.summary.total_power_watts,
+              carbon: data.summary.total_carbon_grams_co2,
+            }]
+            return next.slice(-MAX_HISTORY)
+          })
+        }
+      } catch { /* ignore bad frames */ }
+    }
+
+    ws.onclose = () => {
+      setStatus('disconnected')
+      reconnectTimer.current = window.setTimeout(() => connectRef.current?.(), RECONNECT_DELAY)
+      if (!demoMode) startDemo()
+    }
+
+    ws.onerror = () => ws.close()
+  }, [demoMode, startDemo])
+
+  // Keep ref in sync with the latest connect so the reconnect timer
+  // always calls the current version even after deps change.
+  useEffect(() => {
+    connectRef.current = connect
+  }, [connect])
 
   useEffect(() => {
     connect()

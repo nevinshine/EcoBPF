@@ -1,0 +1,3 @@
+[flake8]
+# Exclude generated protobuf stubs from linting
+exclude = ml/proto
