@@ -279,7 +279,7 @@ export default function App() {
         <div className="charts-row">
           <div className="chart-card">
             <div className="chart-header">
-              <span className="chart-title">Energy Performance</span>
+              <span className="chart-title">Estimated Joule Consumption</span>
               <span style={{ fontSize: 13, background: '#f3f4f6', padding: '4px 12px', borderRadius: 6 }}>Last 14 Days</span>
             </div>
             <ResponsiveContainer width="100%" height={220}>
@@ -295,7 +295,7 @@ export default function App() {
 
           <div className="chart-card">
             <div className="chart-header">
-              <span className="chart-title">Top Workloads</span>
+              <span className="chart-title">eBPF Telemetry Breakdown</span>
             </div>
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
@@ -322,15 +322,16 @@ export default function App() {
         {/* Table below everything */}
         <div className="table-card">
           <div className="chart-header">
-            <span className="chart-title">Live Process Activity</span>
+            <span className="chart-title">Per-Process Energy Attribution</span>
           </div>
           <table className="process-table">
             <thead>
               <tr>
-                <th>Command</th>
+                <th>Process</th>
                 <th>Energy (Joules)</th>
                 <th>Power (Watts)</th>
                 <th>Container</th>
+                <th>AI Task</th>
               </tr>
             </thead>
             <tbody>
@@ -341,13 +342,20 @@ export default function App() {
                   </td>
                   <td style={{ fontWeight: 600 }}>{p.energy_joules.toFixed(3)}</td>
                   <td>{p.power_watts.toFixed(3)}</td>
-                  <td>{p.container_name || 'System'}</td>
+                  <td>{p.container_name || 'System Workload'}</td>
+                  <td>
+                    {p.is_ai_workload ? (
+                      <span style={{ background: '#dbeafe', color: '#1e3a8a', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>AI Inference</span>
+                    ) : (
+                      <span style={{ color: '#9ca3af', fontSize: 12 }}>Standard</span>
+                    )}
+                  </td>
                 </tr>
               ))}
               {processes.length === 0 && (
                 <tr>
-                  <td colSpan={4} style={{ textAlign: 'center', color: '#9ca3af', padding: '32px 0' }}>
-                    Awaiting telemetry feeds...
+                  <td colSpan={5} style={{ textAlign: 'center', color: '#9ca3af', padding: '32px 0' }}>
+                    Awaiting eBPF telemetry feeds...
                   </td>
                 </tr>
               )}
