@@ -176,7 +176,9 @@ cd ml && pip install -r requirements.txt && flake8 . && python train.py --genera
 |---|---|---|
 | `GITHUB_TOKEN` | Auto-provided | Docker push to GHCR, release creation |
 | `SSH_PRIVATE_KEY` | Environment `staging`/`production` | Ansible deploy SSH key |
-| `DEPLOY_HOST` | Environment variable | Health-check target hostname |
+| `DEPLOY_HOST` | Repository/environment variable | Target server hostname for health checks |
+| `DEPLOY_PORT` | Repository/environment variable | WebSocket port for health check (default: `8080`) |
+| `HEALTH_PATH` | Repository/environment variable | Health endpoint path (default: `/health`) |
 | `GRAFANA_ADMIN_PASSWORD` | Runtime `.env` | Grafana admin password (override default) |
 
 Configure **environment protection rules** in *Settings → Environments → production* to require manual approval before production deploys.

@@ -113,6 +113,10 @@ jobs:
       - name: Install BPF toolchain
         run: |
           sudo apt-get update
+          # linux-headers-generic provides type definitions for BPF CO-RE compilation
+          # targeting BPF bytecode. The exact running kernel version is not required
+          # since EcoBPF uses a vendored vmlinux_subset.h from bpf/headers/ for
+          # CO-RE type information — linux-headers-generic supplies libbpf build deps.
           sudo apt-get install -y --no-install-recommends \
             clang-${{ env.CLANG_VERSION }} \
             llvm-${{ env.CLANG_VERSION }} \

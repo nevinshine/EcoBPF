@@ -116,12 +116,14 @@ jobs:
         if: inputs.dry_run == false
         env:
           DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '8080' }}
+          HEALTH_PATH: ${{ vars.HEALTH_PATH || '/health' }}
         run: |
           if [[ -n "${DEPLOY_HOST}" ]]; then
-            echo "Checking health endpoint on ${DEPLOY_HOST}..."
+            echo "Checking health endpoint on ${DEPLOY_HOST}:${DEPLOY_PORT}${HEALTH_PATH}..."
             # Retry health check up to 10 times with 6-second intervals (1 minute total)
             for i in $(seq 1 10); do
-              if curl -fsS "http://${DEPLOY_HOST}:8080/health" --max-time 5 | grep -q '"status":"ok"'; then
+              if curl -fsS "http://${DEPLOY_HOST}:${DEPLOY_PORT}${HEALTH_PATH}" --max-time 5 | grep -q '"status":"ok"'; then
                 echo "✓ Health check passed (attempt ${i})"
                 break
               fi
