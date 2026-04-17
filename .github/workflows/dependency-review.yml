@@ -1,0 +1,23 @@
+name: Dependency Review
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Review dependencies for vulnerabilities
+        uses: actions/dependency-review-action@ce3cf9537a52e8119d91fd484ab5de8e634532b7  # v4.6.0
+        with:
+          fail-on-severity: high
+          # Allow GPL-2.0 (eBPF probes) and BSD-3-Clause (userspace)
+          allow-licenses: Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause, ISC, GPL-2.0, GPL-2.0-only, GPL-2.0-or-later, LGPL-2.1, LGPL-2.1-only, MPL-2.0, CC0-1.0, Unlicense

@@ -1,6 +1,7 @@
 # EcoBPF — Kernel-Level Carbon Observability Engine
 
-[![CI](https://github.com/nevin/ecobpf/actions/workflows/ci.yml/badge.svg)](https://github.com/nevin/ecobpf/actions/workflows/ci.yml)
+[![CI](https://github.com/nevinshine/EcoBPF/actions/workflows/ci.yml/badge.svg)](https://github.com/nevinshine/EcoBPF/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/nevinshine/EcoBPF/actions/workflows/codeql.yml/badge.svg)](https://github.com/nevinshine/EcoBPF/actions/workflows/codeql.yml)
 
 > **Mission**: Give developers actionable data to mitigate the trajectory of data centers consuming 20% of global electricity by 2030.
 
@@ -128,6 +129,59 @@ Edit `configs/ecobpf.yaml`:
 | `estimator_addr` | `localhost:50051` | ML service gRPC address |
 | `carbon_intensity` | `475.0` | Grid carbon intensity (gCO₂/kWh) |
 | `bpf_pin_path` | `/sys/fs/bpf/ecobpf` | BPF map pin path |
+
+For production deployments, copy `.env.example` to `.env` and configure secrets:
+
+```bash
+cp .env.example .env
+# Edit .env — set GRAFANA_ADMIN_PASSWORD to a strong password
+```
+
+## CI/CD Overview
+
+### Workflows
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| `ci.yml` | Push/PR | Lint, test, build (Go + Python + Frontend + Docker) |
+| `codeql.yml` | Push/PR/weekly | Static security analysis (Go, TypeScript, Python) |
+| `dependency-review.yml` | PR to main | Vulnerability scan for dependency changes |
+| `release.yml` | Version tag push | Build binaries, push Docker images, create GitHub Release |
+| `deploy.yml` | Manual dispatch | Deploy to staging or production with approval gate |
+
+### Running checks locally
+
+```bash
+# Go
+go test -race -count=1 ./...
+go vet ./...
+golangci-lint run ./...       # requires golangci-lint v1.62.0+
+
+# Frontend
+cd frontend && npm ci && npm run lint && npm run build
+
+# Python ML
+cd ml && pip install -r requirements.txt && flake8 . && python train.py --generate
+```
+
+### Release procedure
+
+1. Ensure all CI checks pass on `main`.
+2. Create and push a semver tag: `git tag v1.2.3 && git push origin v1.2.3`
+3. The `release.yml` workflow builds binaries, pushes Docker images to GHCR, and creates a GitHub Release.
+
+### Required repository secrets / settings
+
+| Secret / Variable | Where | Purpose |
+|---|---|---|
+| `GITHUB_TOKEN` | Auto-provided | Docker push to GHCR, release creation |
+| `SSH_PRIVATE_KEY` | Environment `staging`/`production` | Ansible deploy SSH key |
+| `DEPLOY_HOST` | Repository/environment variable | Target server hostname for health checks |
+| `DEPLOY_PORT` | Repository/environment variable | WebSocket port for health check (default: `8080`) |
+| `HEALTH_PATH` | Repository/environment variable | Health endpoint path (default: `/health`) |
+| `GRAFANA_ADMIN_PASSWORD` | Runtime `.env` | Grafana admin password (override default) |
+
+Configure **environment protection rules** in *Settings → Environments → production* to require manual approval before production deploys.
 
 ## Key Features
 

@@ -228,7 +228,9 @@ func GetCgroupMemoryLimit(cgroupPath string) (uint64, error) {
 	}
 
 	var limit uint64
-	fmt.Sscanf(content, "%d", &limit)
+	if _, err := fmt.Sscanf(content, "%d", &limit); err != nil {
+		return 0, fmt.Errorf("parsing cgroup memory limit %q: %w", content, err)
+	}
 	return limit, nil
 }
 

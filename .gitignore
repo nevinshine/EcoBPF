@@ -1,0 +1,49 @@
+# ─── Build artifacts ──────────────────────────────────────────────────────────
+build/
+dist/
+
+# ─── eBPF compiled objects ────────────────────────────────────────────────────
+bpf/*.bpf.o
+
+# ─── Go ───────────────────────────────────────────────────────────────────────
+*.exe
+*.test
+coverage.out
+coverage.html
+
+# ─── Python / ML ──────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyc
+ml/model.joblib
+ml/scaler.joblib
+ml/calibration_data.csv
+ml/proto/*_pb2*.py
+.venv/
+venv/
+
+# ─── Node / Frontend ──────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+*.local
+
+# ─── Environment / Secrets ────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ─── Docker ───────────────────────────────────────────────────────────────────
+.docker/
+
+# ─── Editor / OS ──────────────────────────────────────────────────────────────
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/

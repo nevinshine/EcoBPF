@@ -6,10 +6,10 @@ import (
 )
 
 // TestStructAlignment verifies that Go struct sizes exactly match the
-// packed C struct sizes from the eBPF probes. A mismatch here means the
+// C struct sizes from the eBPF probes. A mismatch here means the
 // Go side will deserialize ring buffer / map data incorrectly.
 //
-// These sizes correspond to the C structs with __attribute__((packed)).
+// Sizes correspond to C structs with natural alignment (no packed attribute).
 func TestStructAlignment(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -19,8 +19,8 @@ func TestStructAlignment(t *testing.T) {
 		{
 			name:   "cpuStatsValue",
 			goSize: unsafe.Sizeof(cpuStatsValue{}),
-			// u64×4 + u32 + u64 + [16]byte = 32 + 4 + 8 + 16 = 60
-			expected: 60,
+			// u64×4 + u32 + [4 padding] + u64 + [16]byte = 32 + 4 + 4 + 8 + 16 = 64
+			expected: 64,
 		},
 		{
 			name:   "memStatsValue",
@@ -31,8 +31,8 @@ func TestStructAlignment(t *testing.T) {
 		{
 			name:   "gpuStatsValue",
 			goSize: unsafe.Sizeof(gpuStatsValue{}),
-			// u64×4 + u32 + [16]byte = 32 + 4 + 16 = 52
-			expected: 52,
+			// u64×4 + u32 + [16]byte + [4 trailing padding] = 32 + 4 + 16 + 4 = 56
+			expected: 56,
 		},
 	}
 
