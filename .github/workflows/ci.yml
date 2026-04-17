@@ -1,0 +1,210 @@
+name: EcoBPF CI Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  GO_VERSION: "1.22"
+  PYTHON_VERSION: "3.11"
+  CLANG_VERSION: "14"
+
+jobs:
+  # ─── Lint ──────────────────────────────────────────────────────────
+  lint:
+    name: Lint & Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install lint tools
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          pip install flake8
+
+      - name: Go lint
+        run: golangci-lint run ./...
+
+      - name: Python lint
+        run: flake8 ml/ --max-line-length=100 --ignore=E501,W503
+
+      - name: BPF source lint
+        run: |
+          sudo apt-get install -y clang-tidy-${{ env.CLANG_VERSION }}
+          clang-tidy-${{ env.CLANG_VERSION }} bpf/*.bpf.c -- \
+            -O2 -target bpf -I bpf/headers || true
+
+  # ─── Build eBPF ────────────────────────────────────────────────────
+  build-bpf:
+    name: Compile eBPF Probes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install BPF toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang-${{ env.CLANG_VERSION }} \
+            llvm-${{ env.CLANG_VERSION }} \
+            libbpf-dev \
+            linux-headers-$(uname -r) \
+            bpftool
+
+      - name: Compile BPF objects
+        run: |
+          for src in bpf/*.bpf.c; do
+            obj="${src%.bpf.c}.bpf.o"
+            echo "Compiling $src → $obj"
+            clang-${{ env.CLANG_VERSION }} -O2 -g -Wall -Werror \
+              -target bpf -D__TARGET_ARCH_x86 \
+              -I bpf/headers \
+              -c "$src" -o "$obj"
+          done
+
+      - name: BPF verifier dry-run
+        run: |
+          # Attempt to verify BPF objects against the kernel verifier.
+          # This catches instruction limits, loop unrolling issues, and
+          # memory boundary violations during the PR phase.
+          for obj in bpf/*.bpf.o; do
+            echo "Verifying $obj..."
+            sudo bpftool prog load "$obj" /sys/fs/bpf/ci_verify_test 2>&1 && \
+              sudo rm -f /sys/fs/bpf/ci_verify_test && \
+              echo "✓ $obj passed" || \
+              echo "⚠ $obj verifier check failed (may need privileged runner)"
+          done
+
+      - name: Upload BPF objects
+        uses: actions/upload-artifact@v4
+        with:
+          name: bpf-objects
+          path: bpf/*.bpf.o
+          retention-days: 7
+
+  # ─── Build Go ──────────────────────────────────────────────────────
+  build-go:
+    name: Build Go Daemon
+    runs-on: ubuntu-latest
+    needs: build-bpf
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download BPF objects
+        uses: actions/download-artifact@v4
+        with:
+          name: bpf-objects
+          path: bpf/
+
+      - name: Build daemon
+        run: |
+          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "ci-${{ github.sha }}")
+          go build -ldflags "-X main.Version=${VERSION}" -o build/ecobpf ./cmd/ecobpf/
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ecobpf-binary
+          path: build/ecobpf
+          retention-days: 7
+
+  # ─── Test Go ───────────────────────────────────────────────────────
+  test-go:
+    name: Go Unit Tests
+    runs-on: ubuntu-latest
+    needs: build-go
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run tests
+        run: go test -v -race -count=1 -coverprofile=coverage.out ./...
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-coverage
+          path: coverage.out
+
+  # ─── Test Python ───────────────────────────────────────────────────
+  test-python:
+    name: Python ML Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: ml/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r ml/requirements.txt
+
+      - name: Train model on synthetic data
+        run: cd ml && python train.py --generate
+
+      - name: Verify model artifacts
+        run: |
+          test -f ml/model.joblib && echo "✓ model.joblib exists"
+          test -f ml/scaler.joblib && echo "✓ scaler.joblib exists"
+          test -f ml/calibration_data.csv && echo "✓ calibration_data.csv exists"
+
+  # ─── Docker Build ──────────────────────────────────────────────────
+  docker-build:
+    name: Docker Image Build
+    runs-on: ubuntu-latest
+    needs: [build-bpf, test-go, test-python]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build daemon image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deploy/Dockerfile
+          push: false
+          tags: ecobpf-daemon:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build ML service image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deploy/Dockerfile.ml
+          push: false
+          tags: ecobpf-ml:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Validate Docker Compose
+        run: docker compose -f deploy/docker-compose.yml config

@@ -1,0 +1,155 @@
+---
+# ─── Prerequisites ────────────────────────────────────────────────
+- name: Install kernel headers and BPF toolchain
+  apt:
+    name:
+      - linux-headers-{{ ansible_kernel }}
+      - clang-14
+      - llvm-14
+      - libbpf-dev
+      - bpftool
+      - python3
+      - python3-pip
+      - python3-venv
+    state: present
+    update_cache: true
+  tags: [install, prerequisites]
+
+- name: Ensure BPF filesystem is mounted
+  mount:
+    path: /sys/fs/bpf
+    src: bpffs
+    fstype: bpf
+    state: mounted
+  tags: [install, prerequisites]
+
+# ─── User & directories ──────────────────────────────────────────
+- name: Create ecobpf system user
+  user:
+    name: "{{ ecobpf_user }}"
+    group: "{{ ecobpf_group }}"
+    system: true
+    shell: /bin/false
+    home: "{{ ecobpf_home }}"
+    create_home: false
+  tags: [install]
+
+- name: Create ecobpf directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ ecobpf_user }}"
+    group: "{{ ecobpf_group }}"
+    mode: "0755"
+  loop:
+    - "{{ ecobpf_home }}"
+    - "{{ ecobpf_home }}/bpf"
+    - "{{ ecobpf_home }}/ml"
+    - "{{ ecobpf_config_dir }}"
+    - "{{ ecobpf_bpf_pin_path }}"
+  tags: [install]
+
+# ─── Deploy daemon binary ────────────────────────────────────────
+- name: Copy EcoBPF daemon binary
+  copy:
+    src: "{{ playbook_dir }}/../../build/ecobpf"
+    dest: "{{ ecobpf_home }}/ecobpf"
+    owner: "{{ ecobpf_user }}"
+    group: "{{ ecobpf_group }}"
+    mode: "0755"
+  notify: Restart ecobpf daemon
+  tags: [deploy, upgrade]
+
+- name: Copy compiled BPF objects
+  copy:
+    src: "{{ item }}"
+    dest: "{{ ecobpf_home }}/bpf/"
+    owner: "{{ ecobpf_user }}"
+    group: "{{ ecobpf_group }}"
+    mode: "0644"
+  with_fileglob:
+    - "{{ playbook_dir }}/../../bpf/*.bpf.o"
+  notify: Restart ecobpf daemon
+  tags: [deploy, upgrade]
+
+# ─── Deploy ML service ───────────────────────────────────────────
+- name: Copy ML service files
+  copy:
+    src: "{{ playbook_dir }}/../../ml/"
+    dest: "{{ ecobpf_home }}/ml/"
+    owner: "{{ ecobpf_user }}"
+    group: "{{ ecobpf_group }}"
+    mode: "0644"
+  tags: [deploy, upgrade]
+
+- name: Create Python virtual environment
+  command: python3 -m venv {{ ecobpf_home }}/ml/venv
+  args:
+    creates: "{{ ecobpf_home }}/ml/venv/bin/python"
+  tags: [deploy]
+
+- name: Install ML Python dependencies
+  pip:
+    requirements: "{{ ecobpf_home }}/ml/requirements.txt"
+    virtualenv: "{{ ecobpf_home }}/ml/venv"
+  tags: [deploy, upgrade]
+
+- name: Train ML model (if not present)
+  command: "{{ ecobpf_home }}/ml/venv/bin/python {{ ecobpf_home }}/ml/train.py --generate"
+  args:
+    creates: "{{ ecobpf_home }}/ml/model.joblib"
+  tags: [deploy]
+
+# ─── Configuration ───────────────────────────────────────────────
+- name: Deploy daemon configuration
+  template:
+    src: "{{ playbook_dir }}/../../configs/ecobpf.yaml"
+    dest: "{{ ecobpf_config_dir }}/ecobpf.yaml"
+    owner: "{{ ecobpf_user }}"
+    group: "{{ ecobpf_group }}"
+    mode: "0644"
+  notify: Restart ecobpf daemon
+  tags: [deploy, config]
+
+# ─── Systemd services ───────────────────────────────────────────
+- name: Deploy EcoBPF daemon systemd unit
+  template:
+    src: "ecobpf.service.j2"
+    dest: /etc/systemd/system/ecobpf.service
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart ecobpf daemon
+  tags: [deploy, service]
+
+- name: Deploy ML service systemd unit
+  template:
+    src: "ecobpf-ml.service.j2"
+    dest: /etc/systemd/system/ecobpf-ml.service
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart ecobpf ML service
+  tags: [deploy, service]
+
+- name: Enable and start services
+  systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - ecobpf-ml
+    - ecobpf
+  tags: [deploy, service]
+
+# ─── Firewall ────────────────────────────────────────────────────
+- name: Open firewall ports
+  ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop:
+    - "{{ ecobpf_prometheus_port }}"
+    - "{{ ecobpf_websocket_port }}"
+  when: ansible_facts.packages is defined and 'ufw' in ansible_facts.packages
+  tags: [deploy, firewall]

@@ -1,0 +1,14 @@
+---
+- name: Reload systemd
+  systemd:
+    daemon_reload: true
+
+- name: Restart ecobpf daemon
+  systemd:
+    name: ecobpf
+    state: restarted
+
+- name: Restart ecobpf ML service
+  systemd:
+    name: ecobpf-ml
+    state: restarted

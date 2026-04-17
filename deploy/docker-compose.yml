@@ -1,0 +1,103 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# EcoBPF — Full-Stack Docker Compose
+# ═══════════════════════════════════════════════════════════════════════════════
+# Services:
+#   ecobpf-daemon  — eBPF probe loader + metrics collector (privileged)
+#   ecobpf-ml      — Python ML energy estimation service
+#   prometheus      — Metrics scraping and storage
+#   grafana         — Carbon observability dashboard
+# ═══════════════════════════════════════════════════════════════════════════════
+
+services:
+  # ─── EcoBPF Daemon ──────────────────────────────────────────────────────────
+  ecobpf-daemon:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: ecobpf-daemon
+    # Fine-grained capabilities instead of privileged mode
+    cap_add:
+      - BPF                        # bpf() syscall
+      - PERFMON                    # perf_event_open for tracepoints
+      - SYS_RESOURCE               # rlimit for locked memory (BPF maps)
+      - SYS_ADMIN                  # Required for certain tracepoints on kernels < 5.19
+    security_opt:
+      - apparmor:unconfined        # Required for BPF on AppArmor-enabled hosts
+    pid: host                      # Share host PID namespace for process profiling
+    network_mode: host             # Share host network for cgroup access
+    volumes:
+      - /sys/kernel/debug:/sys/kernel/debug:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      - /sys/fs/bpf:/sys/fs/bpf
+      - /proc:/host/proc:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro  # Container runtime enrichment
+      - ../configs/ecobpf.yaml:/opt/ecobpf/configs/ecobpf.yaml:ro
+    environment:
+      - ECOBPF_ESTIMATOR_ADDR=localhost:50051
+    ports:
+      - "9090:9090"                # Prometheus metrics
+      - "8080:8080"                # WebSocket feed
+    depends_on:
+      ecobpf-ml:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ─── ML Estimation Service ─────────────────────────────────────────────────
+  ecobpf-ml:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.ml
+    container_name: ecobpf-ml
+    ports:
+      - "50051:50051"              # gRPC
+    environment:
+      - CARBON_INTENSITY=475.0
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import grpc; ch=grpc.insecure_channel('127.0.0.1:50051'); grpc.channel_ready_future(ch).result(timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ─── Prometheus ─────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: ecobpf-prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9091:9090"                # Prometheus UI (9091 to avoid conflict)
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+
+  # ─── Grafana ────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana-oss:11.0.0
+    container_name: ecobpf-grafana
+    volumes:
+      - ../grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=ecobpf
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/ecobpf.json
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  grafana-data:

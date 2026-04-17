@@ -1,0 +1,93 @@
+syntax = "proto3";
+
+package ecobpf.estimator.v1;
+
+option go_package = "github.com/nevin/ecobpf/internal/estimator/proto";
+
+// EstimatorService translates kernel telemetry feature vectors
+// into estimated energy consumption (joules).
+service EstimatorService {
+    // Estimate processes a batch of feature vectors and returns
+    // per-process energy estimates.
+    rpc Estimate(FeatureVectorBatch) returns (EnergyEstimateBatch);
+
+    // HealthCheck verifies the ML model is loaded and ready.
+    rpc HealthCheck(HealthRequest) returns (HealthResponse);
+}
+
+// FeatureVector represents the kernel telemetry signals for a single
+// process at a point in time.
+message FeatureVector {
+    uint32 pid = 1;
+    uint32 tgid = 2;
+    string comm = 3;
+    string container_id = 4;    // Empty if not containerized
+
+    // CPU metrics
+    uint64 cpu_time_ns = 10;
+    uint64 ctx_switches = 11;
+    uint64 voluntary_ctx_switches = 12;
+    uint64 involuntary_ctx_switches = 13;
+    uint32 cpu_freq_mhz = 14;
+    uint32 cpu_id = 15;
+
+    // Memory metrics
+    uint64 major_faults = 20;
+    uint64 minor_faults = 21;
+    uint64 rss_bytes = 22;
+    uint64 direct_reclaim_count = 23;
+
+    // GPU metrics
+    uint64 gpu_jobs_submitted = 30;
+    uint64 gpu_active_ns = 31;
+
+    // Timestamp
+    uint64 timestamp_ns = 40;
+}
+
+// FeatureVectorBatch is a collection of feature vectors
+// submitted for batch inference.
+message FeatureVectorBatch {
+    repeated FeatureVector vectors = 1;
+    uint64 collection_timestamp_ns = 2;
+}
+
+// EnergyEstimate is the ML model's output for a single process.
+message EnergyEstimate {
+    uint32 pid = 1;
+    string comm = 2;
+    string container_id = 3;
+
+    double energy_joules = 10;          // Estimated energy consumption
+    double power_watts = 11;            // Instantaneous power estimate
+    double confidence = 12;             // Model confidence (0.0 - 1.0)
+
+    // Component breakdown
+    double cpu_energy_joules = 20;
+    double memory_energy_joules = 21;
+    double gpu_energy_joules = 22;
+
+    // Carbon attribution
+    double carbon_grams_co2 = 30;       // energy × grid intensity factor
+
+    // Attribution metadata
+    bool is_ai_inference = 40;          // Flagged as AI/ML workload
+    string attribution_label = 41;      // User-defined label (e.g., "model-serving")
+}
+
+// EnergyEstimateBatch is the response containing estimates for all
+// processes in the request batch.
+message EnergyEstimateBatch {
+    repeated EnergyEstimate estimates = 1;
+    uint64 inference_latency_ns = 2;    // Time taken for ML inference
+    string model_version = 3;
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+    bool healthy = 1;
+    string model_version = 2;
+    uint64 uptime_seconds = 3;
+    uint64 total_inferences = 4;
+}

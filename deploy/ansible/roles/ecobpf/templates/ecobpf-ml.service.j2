@@ -1,0 +1,27 @@
+[Unit]
+Description=EcoBPF ML Energy Estimation Service
+Documentation=https://github.com/nevin/ecobpf
+After=network.target
+
+[Service]
+Type=simple
+User={{ ecobpf_user }}
+Group={{ ecobpf_group }}
+WorkingDirectory={{ ecobpf_home }}/ml
+ExecStart={{ ecobpf_home }}/ml/venv/bin/python {{ ecobpf_home }}/ml/server.py --port {{ ecobpf_ml_port }}
+Restart=on-failure
+RestartSec=5s
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths={{ ecobpf_home }}/ml
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ecobpf-ml
+
+[Install]
+WantedBy=multi-user.target

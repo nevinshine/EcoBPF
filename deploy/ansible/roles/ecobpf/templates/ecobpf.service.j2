@@ -1,0 +1,33 @@
+[Unit]
+Description=EcoBPF Carbon Observability Daemon
+Documentation=https://github.com/nevin/ecobpf
+After=network.target ecobpf-ml.service
+Wants=ecobpf-ml.service
+
+[Service]
+Type=simple
+User=root
+Group={{ ecobpf_group }}
+ExecStart={{ ecobpf_home }}/ecobpf --config {{ ecobpf_config_dir }}/ecobpf.yaml
+Restart=on-failure
+RestartSec=5s
+LimitNOFILE=65536
+LimitMEMLOCK=infinity
+
+# BPF capabilities (fine-grained alternative to running as root)
+AmbientCapabilities=CAP_BPF CAP_PERFMON CAP_SYS_ADMIN CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_BPF CAP_PERFMON CAP_SYS_ADMIN CAP_NET_ADMIN
+
+# Security hardening
+NoNewPrivileges=false
+ProtectSystem=strict
+ReadWritePaths={{ ecobpf_bpf_pin_path }} /sys/fs/bpf
+ReadOnlyPaths=/sys/kernel/debug /sys/fs/cgroup /proc
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ecobpf
+
+[Install]
+WantedBy=multi-user.target

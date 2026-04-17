@@ -1,0 +1,28 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════════
+# EcoBPF Ansible Playbook — Bare-Metal Host Deployment
+# ═══════════════════════════════════════════════════════════════════════════════
+# Deploys the EcoBPF daemon and ML service to bare-metal Linux hosts using the
+# ecobpf role.
+#
+# Usage:
+#   ansible-playbook -i inventory.ini playbook.yml
+# ═══════════════════════════════════════════════════════════════════════════════
+
+- name: Deploy EcoBPF Carbon Observability Engine
+  hosts: ecobpf_hosts
+  become: true
+  vars:
+    ecobpf_version: "{{ lookup('env', 'ECOBPF_VERSION') | default('latest', true) }}"
+    ecobpf_user: ecobpf
+    ecobpf_group: ecobpf
+    ecobpf_home: /opt/ecobpf
+    ecobpf_config_dir: /etc/ecobpf
+    ecobpf_bpf_pin_path: /sys/fs/bpf/ecobpf
+    ecobpf_carbon_intensity: 475.0
+    ecobpf_ml_port: 50051
+    ecobpf_prometheus_port: 9090
+    ecobpf_websocket_port: 8080
+
+  roles:
+    - ecobpf

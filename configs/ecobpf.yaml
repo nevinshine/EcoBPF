@@ -1,0 +1,46 @@
+# EcoBPF Daemon Configuration
+# =============================================================================
+
+# BPF filesystem pin path for map persistence across daemon restarts.
+# Maps are pinned here so kernel-side data survives daemon upgrades.
+bpf_pin_path: /sys/fs/bpf/ecobpf
+
+# Polling interval for reading BPF maps and sending estimates.
+# Lower values = higher resolution but more CPU usage.
+poll_interval: 1s
+
+# ML estimator gRPC service address.
+# The daemon includes a circuit breaker — if the ML service is unavailable,
+# it falls back to heuristic estimation with ~30% confidence.
+estimator_addr: localhost:50051
+
+# Prometheus metrics exporter listen address.
+prometheus_addr: ":9090"
+
+# WebSocket telemetry feed listen address.
+# Dashboard clients connect to ws://<host>:8080/ws
+websocket_addr: ":8080"
+
+# Carbon intensity factor for the deployment region (gCO2 per kWh).
+# Common values:
+#   US Average:     420
+#   EU Average:     275
+#   Global Average: 475
+#   France (Nuclear):50
+#   India:          720
+#   China:          580
+carbon_intensity: 475.0
+
+# Log level: debug, info, warn, error
+log_level: info
+
+# Compiled eBPF object file paths (relative to working directory).
+bpf_objects:
+  cpu_sched: bpf/cpu_sched.bpf.o
+  mem_pressure: bpf/mem_pressure.bpf.o
+  gpu_activity: bpf/gpu_activity.bpf.o
+
+# Backpressure tuning
+channel_size: 4096
+batch_size: 50
+flush_interval: 100ms
