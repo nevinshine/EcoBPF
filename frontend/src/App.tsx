@@ -4,8 +4,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts'
 import {
-  Leaf, Zap, Activity, Cpu, Server, Settings, MessageSquare,
-  Users, LogOut, LayoutGrid, BarChart2, Filter
+  Leaf, Zap, Activity, Cpu, Server, LayoutGrid, BarChart2
 } from 'lucide-react'
 import './index.css'
 
@@ -180,9 +179,9 @@ export default function App() {
   const processes = latest?.process_data?.slice().sort((a, b) => b.energy_joules - a.energy_joules) ?? []
 
   const pieData = [
-    { name: 'CPU Models', value: 6.2 },
-    { name: 'GPU Inference', value: 2.1 },
-    { name: 'Background Tasks', value: 1.0 },
+    { name: 'CPU Scheduling', value: 5.4 },
+    { name: 'GPU Activity', value: 3.1 },
+    { name: 'Page Faults', value: 0.8 },
   ]
 
   return (
@@ -196,48 +195,33 @@ export default function App() {
         
         <nav className="sidebar-nav">
           <div className="nav-section">
-            <div className="nav-section-title">Overview</div>
+            <div className="nav-section-title">Observability Engine</div>
             <a className="nav-item active">
-              <LayoutGrid size={18} /> Summary
+              <LayoutGrid size={18} /> Live Telemetry
             </a>
             <a className="nav-item">
-              <Filter size={18} /> Custom view
+              <Cpu size={18} /> eBPF Probes
+            </a>
+            <a className="nav-item">
+              <Server size={18} /> AI Workloads
             </a>
           </div>
 
           <div className="nav-section">
+            <div className="nav-section-title">Node Integration</div>
             <a className="nav-item">
-              <MessageSquare size={18} /> Events
-              <span style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: 10, fontSize: 11 }}>2</span>
+              <Zap size={18} /> Bare-Metal
             </a>
             <a className="nav-item">
-              <Cpu size={18} /> Processes
-            </a>
-            <a className="nav-item">
-              <Server size={18} /> Containers
-            </a>
-            <a className="nav-item">
-              <Users size={18} /> Cgroups
-            </a>
-          </div>
-
-          <div className="nav-section" style={{ marginTop: 'auto' }}>
-            <a className="nav-item">
-              <Settings size={18} /> Settings
+              <Activity size={18} /> Virtualized Cloud
             </a>
           </div>
         </nav>
 
         <div className="sidebar-footer">
-          <a className="nav-item" style={{ fontSize: 13 }}>
-            Help
-          </a>
-          <a className="nav-item" style={{ fontSize: 13 }}>
-            Contact us
-          </a>
-          <a className="nav-item" style={{ fontSize: 13, marginTop: 12 }}>
-            <LogOut size={16} /> Log out
-          </a>
+          <div style={{ fontSize: 11, color: 'var(--text-sidebar)', opacity: 0.6, lineHeight: 1.5, padding: '0 8px' }}>
+            Kernel-Level Carbon Observability for AI & Cloud Workloads
+          </div>
         </div>
       </aside>
 
@@ -245,16 +229,12 @@ export default function App() {
       <main className="main-content">
         <div className="top-banner">
           <div className="banner-left">
-            <h1>EcoBPF Dashboard</h1>
-            <p>Here are today's observability stats from your server!</p>
+            <h1>GreenOps Resource Dashboard</h1>
+            <p>Real-time per-process energy estimation via deterministic eBPF kernel signals.</p>
           </div>
           <div className="banner-right">
             <div className={`connection-status ${status}`}>
-              {status === 'connected' ? 'Live Data' : demoMode ? 'Demo Fallback' : 'Connecting...'}
-            </div>
-            <div className="user-profile">
-              <div className="avatar"></div>
-              <span>Nevin</span>
+              {status === 'connected' ? 'eBPF Daemon Live' : demoMode ? 'Demo Fallback' : 'Connecting to Daemon...'}
             </div>
           </div>
         </div>
@@ -332,7 +312,7 @@ export default function App() {
                 </Pie>
                 <Tooltip />
                 <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" style={{ fontSize: 20, fontWeight: 700, fill: '#1f2937' }}>
-                  6.2k
+                  9.3J
                 </text>
               </PieChart>
             </ResponsiveContainer>

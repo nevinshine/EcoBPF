@@ -2,9 +2,16 @@
 
 [![CI](https://github.com/nevin/ecobpf/actions/workflows/ci.yml/badge.svg)](https://github.com/nevin/ecobpf/actions/workflows/ci.yml)
 
-**EcoBPF** uses eBPF probes to collect deterministic runtime signals from the Linux kernel — CPU scheduling, context switches, memory pressure, page faults, and GPU activity — and translates them into per-process energy consumption estimates using machine learning.
-
 > **Mission**: Give developers actionable data to mitigate the trajectory of data centers consuming 20% of global electricity by 2030.
+
+## Abstract
+The rapid growth of artificial intelligence and cloud computing has significantly increased global energy consumption, yet the carbon footprint of individual software processes remains largely invisible. Current sustainability tools rely on coarse billing estimates or infrastructure-level monitoring, making it difficult to attribute energy usage to specific workloads. This lack of visibility limits the ability of developers and organizations to optimize software systems for sustainability.
+
+EcoBPF is a kernel-level carbon observability engine designed to estimate per-process energy consumption in real time. It leverages extended Berkeley Packet Filter (eBPF) technology to deploy near-zero overhead probes within the host operating system. These probes capture deterministic runtime signals such as CPU scheduling events, context switches, memory pressure, page faults, and GPU activity. The collected metrics form a feature vector that is translated into estimated energy consumption using a linear regression model trained on calibrated bare-metal benchmarks. This enables energy estimation even in virtualized cloud environments where direct hardware power sensors are unavailable.
+
+Unlike container-centric monitoring systems that depend heavily on orchestration frameworks, EcoBPF operates as a lightweight host daemon capable of profiling both containerized and standalone workloads. The system attributes estimated joule consumption to individual processes and AI inference tasks and presents results through a real-time observability dashboard.
+
+By providing process-level energy transparency, EcoBPF enables carbon-aware optimization, supports GreenOps compliance, and promotes sustainable AI and cloud infrastructure. The project aligns with the theme of Sustainable Innovations for Growth and Human Transformation by making software energy efficiency measurable, actionable, and scalable.
 
 ## Architecture
 
