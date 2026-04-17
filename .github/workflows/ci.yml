@@ -246,7 +246,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@b5730813e33ed4e76cdebe16d86b47b5f0c3c3ea  # v3.10.0
+        uses: docker/setup-buildx-action@v3.10.0
 
       - name: Build daemon image
         uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb37086795e31c6c1  # v6.16.0

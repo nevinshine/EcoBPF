@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Review dependencies for vulnerabilities
-        uses: actions/dependency-review-action@ce3cf9537a52e8119d91fd484ab5de8e634532b7  # v4.6.0
+        uses: actions/dependency-review-action@v4.6.0
         with:
           fail-on-severity: high
           # Allow GPL-2.0 (eBPF probes) and BSD-3-Clause (userspace)

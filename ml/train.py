@@ -123,7 +123,7 @@ def main():
     y = df["energy_joules"].values
 
     print(f"\nTraining on {len(df)} samples with {len(FEATURE_COLUMNS)} features...")
-    print(f"  Feature ranges:")
+    print("  Feature ranges:")
     for col in FEATURE_COLUMNS:
         print(f"    {col:20s}: [{df[col].min():.2e}, {df[col].max():.2e}]")
     print(f"  Energy range: [{y.min():.4f}, {y.max():.4f}] joules")
