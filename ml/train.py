@@ -133,7 +133,7 @@ def main():
 
     # ─── Results ─────────────────────────────────────────────────────
     print(f"\n{'='*60}")
-    print(f"  Training Results")
+    print("  Training Results")
     print(f"{'='*60}")
     print(f"  R² Score:  {metrics['r2_score']:.6f}")
     print(f"  MAE:       {metrics['mae_joules']:.6f} joules")
